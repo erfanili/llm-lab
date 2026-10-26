@@ -1,0 +1,19 @@
+# ~48M params (31.5M non-embedding), Chinchilla-ish 1B tokens (~20 tokens/param).
+[model]
+vocab_size = 32768
+d_model = 512
+n_layers = 10
+n_heads = 8
+n_kv_heads = 4
+d_ff = 1536
+max_seq_len = 1024
+
+[train]
+name = "50m"
+seq_len = 1024
+micro_batch = 32
+grad_accum = 4          # x 2 GPUs -> 262,144 tokens/step
+total_tokens = 1_000_000_000
+lr = 2e-3
+warmup_steps = 200
+eval_interval = 250

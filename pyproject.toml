@@ -1,0 +1,25 @@
+[project]
+name = "llm-lab"
+version = "0.1.0"
+description = "Pretraining LLMs from scratch in plain PyTorch"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "numpy",
+    "tokenizers",
+    "pyarrow",
+    "huggingface_hub",
+    "tqdm",
+    "pytest",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.setuptools]
+packages = ["llm"]
