@@ -77,21 +77,30 @@ def mean_ci(x) -> dict:
     return dict(mean=float(x.mean()), ci95=float(1.96 * se), n=len(x))
 
 
-def run_task(model, tok: Tokenizer, items: list[dict], device, max_len: int, limit: int | None = None):
-    eot = tok.token_to_id("<|endoftext|>")
-    items = items[:limit] if limit else items
-    enc = lambda s: tok.encode(s).ids if s else []
+def encode_pair(lm, context: str, continuation: str) -> tuple[list[int], list[int]]:
+    """lm-evaluation-harness tokenization: trailing context whitespace moves to the continuation,
+    the pair is encoded jointly and split, so the boundary token matches how the text would
+    actually be tokenized. Empty contexts get the model's start token."""
+    n_space = len(context) - len(context.rstrip())
+    if n_space:
+        context, continuation = context[:-n_space], context[-n_space:] + continuation
+    whole, ctx = lm.encode(context + continuation), lm.encode(context)
+    cont = whole[len(ctx):]
+    return (lm.prefix + ctx if ctx else lm.empty_ctx), cont
 
+
+def run_task(lm, items: list[dict], limit: int | None = None):
+    items = items[:limit] if limit else items
     if items[0]["task"] == "lambada":
-        res = score(model, [([eot] + enc(it["context"]), enc(it["continuation"])) for it in items], device, max_len)
-        n_tok = [len(enc(it["continuation"])) for it in items]
+        reqs = [encode_pair(lm, it["context"], it["continuation"]) for it in items]
+        res = score(lm, reqs, lm.device, lm.max_len)
         per_item = [dict(id=it["id"], correct=g, ll=ll) for it, (ll, g) in zip(items, res)]
         metrics = dict(acc=mean_ci([r["correct"] for r in per_item]),
-                       ppl=dict(mean=math.exp(-sum(r["ll"] for r in per_item) / sum(n_tok))))
+                       ppl=dict(mean=math.exp(-sum(r["ll"] for r in per_item) / sum(len(c) for _, c in reqs))))
         return metrics, per_item
 
-    flat = [([eot] + enc(c["context"]), enc(c["continuation"])) for it in items for c in it["choices"]]
-    res = iter(score(model, flat, device, max_len))
+    flat = [encode_pair(lm, c["context"], c["continuation"]) for it in items for c in it["choices"]]
+    res = iter(score(lm, flat, lm.device, lm.max_len))
     per_item = []
     for it in items:
         ll = np.array([next(res)[0] for _ in it["choices"]])
@@ -112,6 +121,35 @@ def run_task(model, tok: Tokenizer, items: list[dict], device, max_len: int, lim
             by.setdefault(r["phenomenon"], []).append(r["correct"])
         metrics["by_phenomenon"] = {k: float(np.mean(v)) for k, v in sorted(by.items())}
     return metrics, per_item
+
+
+def load_val_docs(val_bin: str, tokenizer: str, n_docs: int) -> list[str]:
+    """The first n_docs documents of our held-out token file, decoded back to text (byte-level
+    BPE is lossless), so models with any tokenizer can be scored on identical text."""
+    tok = Tokenizer.from_file(tokenizer)
+    eot = tok.token_to_id("<|endoftext|>")
+    toks = np.memmap(val_bin, dtype=np.uint16, mode="r")
+    ends = np.flatnonzero(toks[: 50_000_000] == eot)[:n_docs]
+    starts = np.concatenate([[0], ends[:-1] + 1])
+    return [tok.decode(toks[s:e].tolist()) for s, e in zip(starts, ends)]
+
+
+def doc_bpb(lm, docs: list[str]) -> dict:
+    """Tokenizer-independent bits per UTF-8 byte over whole documents. Long documents are scored with
+    rolling windows (stride max_len/2), so every token sees >= max_len/2 tokens of context."""
+    stride = lm.max_len // 2
+    reqs, n_bytes = [], 0
+    for d in docs:
+        t = lm.encode(d)
+        n_bytes += len(d.encode("utf-8"))
+        full = lm.empty_ctx + t
+        for s in range(0, len(t), stride):
+            pos = len(lm.empty_ctx) + s  # index in `full` of the first scored token
+            reqs.append((full[max(0, pos - (lm.max_len - stride)) : pos], t[s : s + stride]))
+    nll = -sum(ll for ll, _ in score(lm, reqs, lm.device, lm.max_len))
+    n_tok = sum(len(c) for _, c in reqs)
+    return dict(bpb=nll / math.log(2) / n_bytes, bytes=n_bytes, tokens=n_tok, bytes_per_token=n_bytes / n_tok,
+                n_docs=len(docs))
 
 
 def load_items(eval_dir: str, task: str) -> list[dict]:

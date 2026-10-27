@@ -10,6 +10,7 @@ an analysis never pays twice. Needs credentials: ANTHROPIC_API_KEY or an `ant au
 
 import hashlib
 import json
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -41,8 +42,20 @@ GRADE_SCHEMA = {
 }
 
 
+KEY_FILE = Path.home() / ".config/llm-lab/anthropic.env"  # private (chmod 600), outside the repo
+
+
+def _load_key_file():
+    if "ANTHROPIC_API_KEY" not in os.environ and KEY_FILE.exists():
+        for line in KEY_FILE.read_text().splitlines():
+            k, _, v = line.partition("=")
+            if k.strip() == "ANTHROPIC_API_KEY":
+                os.environ["ANTHROPIC_API_KEY"] = v.strip()
+
+
 class Judge:
     def __init__(self, cache_path: str | Path, model: str = MODEL, effort: str = "medium", workers: int = 8):
+        _load_key_file()
         self.client = anthropic.Anthropic()
         self.model, self.effort, self.workers = model, effort, workers
         self.cache_path = Path(cache_path)

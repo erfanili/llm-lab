@@ -1,0 +1,128 @@
+{
+  "_about": "Published zero-shot results for open base models <= ~1.6B params, copied verbatim (converted to %) from the cited sources. One table per source: protocols differ (prompt format, acc vs acc_norm, normalisation), so numbers are only comparable WITHIN a table. Gathered 2026-10-26.",
+  "tables": [
+    {
+      "id": "pythia",
+      "title": "Pythia suite + BLOOM/OPT baselines",
+      "source": "Biderman et al. 2023, Pythia, arXiv:2304.01373, Appendix G Tables 7, 15, 16",
+      "url": "https://arxiv.org/abs/2304.01373",
+      "protocol": "lm-evaluation-harness, 0-shot, accuracy (fractions in the paper, ± stderr ~0.7-1.4 pts). Final checkpoints, non-deduplicated Pythia. Same prompt formats as our harness -> compare against our `acc` (not acc_norm).",
+      "our_metric": {"lambada": "acc", "piqa": "acc", "winogrande": "acc", "arc_easy": "acc", "arc_challenge": "acc", "sciq": "acc"},
+      "columns": ["lambada", "piqa", "winogrande", "arc_easy", "arc_challenge", "sciq"],
+      "rows": [
+        {"model": "Pythia-70M", "params": "70M", "tokens": "300B", "lambada": 18.5, "piqa": 59.5, "winogrande": 52.8, "arc_easy": 37.4, "arc_challenge": 18.1, "sciq": 60.1},
+        {"model": "Pythia-160M", "params": "160M", "tokens": "300B", "lambada": 32.8, "piqa": 62.7, "winogrande": 53.1, "arc_easy": 43.5, "arc_challenge": 18.8, "sciq": 74.1},
+        {"model": "OPT-125M", "params": "125M", "tokens": null, "lambada": 37.9, "piqa": 63.0, "winogrande": 50.3, "arc_easy": 43.5, "arc_challenge": 18.9, "sciq": 75.1},
+        {"model": "OPT-350M", "params": "350M", "tokens": null, "lambada": 45.2, "piqa": 64.4, "winogrande": 52.3, "arc_easy": 44.0, "arc_challenge": 20.7, "sciq": 74.8},
+        {"model": "Pythia-410M", "params": "410M", "tokens": "300B", "lambada": 51.6, "piqa": 66.8, "winogrande": 53.7, "arc_easy": 52.1, "arc_challenge": 21.3, "sciq": 81.1},
+        {"model": "BLOOM-560M", "params": "560M", "tokens": null, "lambada": 34.1, "piqa": 63.7, "winogrande": 50.4, "arc_easy": 47.6, "arc_challenge": 22.1, "sciq": 80.4},
+        {"model": "Pythia-1B", "params": "1B", "tokens": "300B", "lambada": 56.2, "piqa": 70.7, "winogrande": 53.7, "arc_easy": 56.9, "arc_challenge": 24.4, "sciq": 84.0},
+        {"model": "BLOOM-1.1B", "params": "1.1B", "tokens": null, "lambada": 42.6, "piqa": 67.2, "winogrande": 54.7, "arc_easy": 51.5, "arc_challenge": 23.6, "sciq": 83.3},
+        {"model": "OPT-1.3B", "params": "1.3B", "tokens": null, "lambada": 57.9, "piqa": 71.7, "winogrande": 59.7, "arc_easy": 57.0, "arc_challenge": 23.1, "sciq": 84.5}
+      ]
+    },
+    {
+      "id": "mobilellm",
+      "title": "MobileLLM and sub-600M baselines",
+      "source": "Liu et al. 2024, MobileLLM, arXiv:2402.14905, Table 3",
+      "url": "https://arxiv.org/abs/2402.14905",
+      "protocol": "0-shot; baselines re-evaluated by the authors from HF checkpoints for consistency. acc vs acc_norm and harness not stated (Pythia-160M ARC-e here is 40.0 vs 43.5 in the Pythia paper, so it differs from plain acc). MobileLLM models trained on 1T tokens. Compare our acc_norm (HellaSwag/ARC/OBQA) and acc (WinoGrande) with caution.",
+      "our_metric": {"arc_easy": "acc_norm", "arc_challenge": "acc_norm", "piqa": "acc_norm", "hellaswag": "acc_norm", "openbookqa": "acc_norm", "winogrande": "acc"},
+      "columns": ["arc_easy", "arc_challenge", "piqa", "hellaswag", "openbookqa", "winogrande"],
+      "rows": [
+        {"model": "Cerebras-GPT-111M", "params": "111M", "tokens": null, "arc_easy": 35.8, "arc_challenge": 20.2, "piqa": 58.0, "hellaswag": 26.7, "openbookqa": 29.0, "winogrande": 48.8},
+        {"model": "LaMini-GPT-124M", "params": "124M", "tokens": null, "arc_easy": 43.6, "arc_challenge": 26.0, "piqa": 62.7, "hellaswag": 30.2, "openbookqa": 29.6, "winogrande": 49.2},
+        {"model": "Galactica-125M", "params": "125M", "tokens": null, "arc_easy": 44.0, "arc_challenge": 26.2, "piqa": 55.4, "hellaswag": 29.6, "openbookqa": 28.2, "winogrande": 49.6},
+        {"model": "OPT-125M", "params": "125M", "tokens": null, "arc_easy": 41.3, "arc_challenge": 25.2, "piqa": 62.0, "hellaswag": 31.1, "openbookqa": 31.2, "winogrande": 50.8},
+        {"model": "GPT-Neo-125M", "params": "125M", "tokens": null, "arc_easy": 40.7, "arc_challenge": 24.8, "piqa": 62.5, "hellaswag": 29.7, "openbookqa": 31.6, "winogrande": 50.7},
+        {"model": "Pythia-160M", "params": "162M", "tokens": "300B", "arc_easy": 40.0, "arc_challenge": 25.3, "piqa": 62.0, "hellaswag": 29.9, "openbookqa": 31.2, "winogrande": 50.9},
+        {"model": "RWKV-169M", "params": "169M", "tokens": null, "arc_easy": 42.5, "arc_challenge": 25.3, "piqa": 63.9, "hellaswag": 31.9, "openbookqa": 33.8, "winogrande": 51.5},
+        {"model": "MobileLLM-125M", "params": "125M", "tokens": "1T", "arc_easy": 43.9, "arc_challenge": 27.1, "piqa": 65.3, "hellaswag": 38.9, "openbookqa": 39.5, "winogrande": 53.1},
+        {"model": "Cerebras-GPT-256M", "params": "256M", "tokens": null, "arc_easy": 37.9, "arc_challenge": 23.2, "piqa": 61.4, "hellaswag": 28.3, "openbookqa": 31.8, "winogrande": 50.5},
+        {"model": "OPT-350M", "params": "331M", "tokens": null, "arc_easy": 41.9, "arc_challenge": 25.7, "piqa": 64.8, "hellaswag": 36.2, "openbookqa": 33.3, "winogrande": 52.4},
+        {"model": "MobileLLM-350M", "params": "345M", "tokens": "1T", "arc_easy": 53.8, "arc_challenge": 33.5, "piqa": 68.6, "hellaswag": 49.6, "openbookqa": 40.0, "winogrande": 57.6},
+        {"model": "Pythia-410M", "params": "405M", "tokens": "300B", "arc_easy": 47.1, "arc_challenge": 30.3, "piqa": 67.2, "hellaswag": 40.1, "openbookqa": 36.2, "winogrande": 53.4},
+        {"model": "RWKV-430M", "params": "430M", "tokens": null, "arc_easy": 48.9, "arc_challenge": 32.0, "piqa": 68.1, "hellaswag": 40.6, "openbookqa": 37.8, "winogrande": 51.6},
+        {"model": "BLOOM-560M", "params": "559M", "tokens": null, "arc_easy": 43.7, "arc_challenge": 27.5, "piqa": 65.1, "hellaswag": 36.5, "openbookqa": 32.6, "winogrande": 52.2},
+        {"model": "Cerebras-GPT-590M", "params": "590M", "tokens": null, "arc_easy": 42.6, "arc_challenge": 24.9, "piqa": 62.8, "hellaswag": 32.0, "openbookqa": 33.2, "winogrande": 49.7}
+      ]
+    },
+    {
+      "id": "tinyllama",
+      "title": "~1B models (TinyLlama paper)",
+      "source": "Zhang et al. 2024, TinyLlama, arXiv:2401.02385, Table 3",
+      "url": "https://arxiv.org/abs/2401.02385",
+      "protocol": "lm-evaluation-harness, 0-shot; acc vs acc_norm not stated. TinyLlama v1.0: ~1T unique tokens x ~3 epochs (3T seen); v1.1: 2T.",
+      "our_metric": {"hellaswag": "acc_norm", "openbookqa": "acc_norm", "winogrande": "acc", "arc_challenge": "acc_norm", "arc_easy": "acc_norm", "piqa": "acc_norm"},
+      "columns": ["hellaswag", "openbookqa", "winogrande", "arc_challenge", "arc_easy", "piqa"],
+      "rows": [
+        {"model": "Pythia-1.0B", "params": "1B", "tokens": "300B", "hellaswag": 47.16, "openbookqa": 31.40, "winogrande": 53.43, "arc_challenge": 27.05, "arc_easy": 48.99, "piqa": 69.21},
+        {"model": "Pythia-1.4B", "params": "1.4B", "tokens": "300B", "hellaswag": 52.01, "openbookqa": 33.20, "winogrande": 57.38, "arc_challenge": 28.50, "arc_easy": 54.00, "piqa": 70.95},
+        {"model": "OPT-1.3B", "params": "1.3B", "tokens": null, "hellaswag": 53.65, "openbookqa": 33.40, "winogrande": 59.59, "arc_challenge": 29.44, "arc_easy": 50.80, "piqa": 72.36},
+        {"model": "TinyLlama v1.0", "params": "1.1B", "tokens": "3T", "hellaswag": 59.20, "openbookqa": 36.00, "winogrande": 59.12, "arc_challenge": 30.12, "arc_easy": 55.25, "piqa": 73.29},
+        {"model": "TinyLlama v1.1", "params": "1.1B", "tokens": "2T", "hellaswag": 61.47, "openbookqa": 36.80, "winogrande": 59.43, "arc_challenge": 32.68, "arc_easy": 55.47, "piqa": 73.56}
+      ]
+    },
+    {
+      "id": "olmo",
+      "title": "~1B models (OLMo paper)",
+      "source": "Groeneveld et al. 2024, OLMo, arXiv:2402.00838, Table 3",
+      "url": "https://arxiv.org/abs/2402.00838",
+      "protocol": "0-shot rank classification (Catwalk). Per-task normalisation: unconditional for ARC and OBQA, per-token for HellaSwag/PIQA/WinoGrande, none for SciQ. Unconditional normalisation gives much higher ARC scores (Pythia-1B ARC-c 33.1 here vs 24.4 in the Pythia paper): NOT comparable to our ARC/OBQA numbers. OLMo-1B trained on 2T tokens.",
+      "our_metric": {"hellaswag": "acc_norm", "piqa": "acc_norm", "winogrande": "acc", "sciq": "acc"},
+      "columns": ["arc_challenge", "arc_easy", "hellaswag", "openbookqa", "piqa", "sciq", "winogrande"],
+      "rows": [
+        {"model": "Pythia-1B", "params": "1B", "tokens": "300B", "arc_challenge": 33.1, "arc_easy": 50.2, "hellaswag": 44.7, "openbookqa": 37.8, "piqa": 69.1, "sciq": 86.0, "winogrande": 53.3},
+        {"model": "TinyLlama-1.1B", "params": "1.1B", "tokens": "3T", "arc_challenge": 34.8, "arc_easy": 53.2, "hellaswag": 58.7, "openbookqa": 43.6, "piqa": 71.1, "sciq": 90.5, "winogrande": 58.9},
+        {"model": "OLMo-1B", "params": "1B", "tokens": "2T", "arc_challenge": 34.5, "arc_easy": 58.1, "hellaswag": 62.5, "openbookqa": 46.4, "piqa": 73.7, "sciq": 88.1, "winogrande": 58.9},
+        {"model": "StableLM-1.6B", "params": "1.6B", "tokens": null, "arc_challenge": 43.8, "arc_easy": 63.7, "hellaswag": 68.2, "openbookqa": 45.8, "piqa": 74.0, "sciq": 94.7, "winogrande": 64.9}
+      ]
+    },
+    {
+      "id": "smollm2",
+      "title": "SmolLM / SmolLM2 base models (model cards)",
+      "source": "HuggingFaceTB/SmolLM2-135M and SmolLM2-360M model cards",
+      "url": "https://huggingface.co/HuggingFaceTB/SmolLM2-360M",
+      "protocol": "lighteval, 0-shot; ARC is the average of ARC-Easy and ARC-Challenge; prompt formulations differ from lm-eval-harness. SmolLM2-135M: 2T tokens; SmolLM2-360M: 4T tokens. Trained largely on FineWeb-Edu-style data, so the closest data match to ours.",
+      "our_metric": {"hellaswag": "acc_norm", "arc_avg": "mean(arc_easy, arc_challenge) acc_norm", "piqa": "acc_norm", "winogrande": "acc", "openbookqa": "acc_norm"},
+      "columns": ["hellaswag", "arc_avg", "piqa", "winogrande", "openbookqa"],
+      "rows": [
+        {"model": "SmolLM-135M", "params": "135M", "tokens": null, "hellaswag": 41.2, "arc_avg": 42.4, "piqa": 68.4, "winogrande": 51.3, "openbookqa": 34.0},
+        {"model": "SmolLM2-135M", "params": "135M", "tokens": "2T", "hellaswag": 42.1, "arc_avg": 43.9, "piqa": 68.4, "winogrande": 51.3, "openbookqa": 34.6},
+        {"model": "SmolLM-360M", "params": "360M", "tokens": null, "hellaswag": 51.8, "arc_avg": 50.1, "piqa": 71.6, "winogrande": 52.8, "openbookqa": 37.2},
+        {"model": "SmolLM2-360M", "params": "360M", "tokens": "4T", "hellaswag": 54.5, "arc_avg": 53.0, "piqa": 71.7, "winogrande": 52.5, "openbookqa": 37.4},
+        {"model": "Qwen2.5-0.5B", "params": "500M", "tokens": null, "hellaswag": 51.2, "arc_avg": 45.4, "piqa": 69.9, "winogrande": 54.1, "openbookqa": 37.4}
+      ]
+    },
+    {
+      "id": "gpt2_hellaswag",
+      "title": "GPT-2-small-class HellaSwag (incl. a FineWeb-trained reproduction)",
+      "source": "karpathy/llm.c discussion #481 (GPT-2 124M reproduction); GPT-3 paper Appendix H as cited there",
+      "url": "https://github.com/karpathy/llm.c/discussions/481",
+      "protocol": "llm.c HellaSwag eval (completion-style, lowest per-token loss ~ acc_norm). The reproduction is the closest analogue to our setup: same data family (FineWeb), 10B tokens.",
+      "our_metric": {"hellaswag": "acc_norm"},
+      "columns": ["hellaswag"],
+      "rows": [
+        {"model": "GPT-2 (OpenAI)", "params": "124M", "tokens": null, "hellaswag": 29.4},
+        {"model": "GPT-2 repro, llm.c (FineWeb)", "params": "124M", "tokens": "10B", "hellaswag": 29.9},
+        {"model": "GPT-3 Small", "params": "125M", "tokens": "300B", "hellaswag": 33.7}
+      ]
+    },
+    {
+      "id": "blimp",
+      "title": "BLiMP overall accuracy (original paper baselines)",
+      "source": "Warstadt et al. 2020, BLiMP, arXiv:1912.00582, Table 3",
+      "url": "https://arxiv.org/abs/1912.00582",
+      "protocol": "Full-sentence log-probability forced choice over all 67k minimal pairs (same as ours). GPT-2 here is GPT-2-large (774M, ~8B WebText tokens per the paper's estimate); LSTM and Transformer-XL trained on ~100M Wikipedia tokens. Chance = 50.",
+      "our_metric": {"blimp": "acc"},
+      "columns": ["blimp"],
+      "rows": [
+        {"model": "5-gram (Gigaword)", "params": null, "tokens": "3.1B", "blimp": 61.2},
+        {"model": "LSTM (Wikipedia)", "params": null, "tokens": "83M", "blimp": 69.8},
+        {"model": "Transformer-XL (WikiText-103)", "params": null, "tokens": "103M", "blimp": 69.6},
+        {"model": "GPT-2-large", "params": "774M", "tokens": null, "blimp": 83.0},
+        {"model": "Human (individual)", "params": null, "tokens": null, "blimp": 88.6}
+      ]
+    }
+  ]
+}

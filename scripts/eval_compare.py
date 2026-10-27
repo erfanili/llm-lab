@@ -25,8 +25,9 @@ def main():
     args = ap.parse_args()
     a, b = Path(args.a), Path(args.b)
     sa, sb = json.load(open(a / "summary.json")), json.load(open(b / "summary.json"))
-    print(f"A = {sa['ckpt']}\nB = {sb['ckpt']}\n")
-    print(f"val bpb: A={sa['val']['bpb']:.4f}  B={sb['val']['bpb']:.4f}  B-A={sb['val']['bpb'] - sa['val']['bpb']:+.4f}\n")
+    print(f"A = {sa['model']}\nB = {sb['model']}\n")
+    va, vb = sa["val"]["doc"]["bpb"], sb["val"]["doc"]["bpb"]
+    print(f"val doc_bpb: A={va:.4f}  B={vb:.4f}  B-A={vb - va:+.4f}\n")
     print(f"{'task':14s} {'metric':9s} {'A':>7s} {'B':>7s} {'B-A':>8s} {'±95%':>7s} {'z':>6s}   {'p_gold B-A':>10s} {'±95%':>7s}")
     for task in sa["tasks"]:
         if task not in sb["tasks"]:
