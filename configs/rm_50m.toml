@@ -1,0 +1,8 @@
+[rm]
+name = "rm_50m"
+init_ckpt = "/data/erfan/llm-lab/runs/sft_50m/ckpt_final.pt"
+epochs = 1.0
+micro_batch = 16   # pairs -> 32 sequences per forward
+grad_accum = 4
+lr = 5e-5
+eval_interval = 250

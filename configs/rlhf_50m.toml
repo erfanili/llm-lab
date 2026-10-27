@@ -1,0 +1,14 @@
+[ppo]
+name = "rlhf_50m"
+sft_ckpt = "/data/erfan/llm-lab/runs/sft_50m/ckpt_final.pt"
+rm_ckpt = "/data/erfan/llm-lab/runs/rm_50m/ckpt_final.pt"
+iterations = 500
+rollout_batch = 64
+max_new = 128
+ppo_epochs = 2
+minibatch = 16
+policy_lr = 1e-5
+value_lr = 5e-5
+kl_coef = 0.05
+eval_interval = 25
+judge_interval = 0   # e.g. 100 to get a Claude win rate vs SFT every 100 iterations

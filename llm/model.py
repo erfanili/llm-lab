@@ -52,9 +52,10 @@ def rope_cache(seq_len: int, head_dim: int, theta: float) -> tuple[torch.Tensor,
 
 
 def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
-    """Rotate pairs (x[2i], x[2i+1]) by angle pos * inv_freq[i]. x: (B, H, T, D)."""
-    T = x.shape[-2]
-    cos, sin = cos[:T], sin[:T]
+    """Rotate pairs (x[2i], x[2i+1]) by angle pos * inv_freq[i].
+
+    x: (B, H, T, D); cos/sin: (T, D/2), or (B, 1, T, D/2) for per-sequence positions.
+    """
     x1, x2 = x.float()[..., 0::2], x.float()[..., 1::2]
     out = torch.stack((x1 * cos - x2 * sin, x1 * sin + x2 * cos), dim=-1).flatten(-2)
     return out.type_as(x)
@@ -69,17 +70,23 @@ class Attention(nn.Module):
         self.wv = nn.Linear(cfg.d_model, cfg.n_kv_heads * cfg.head_dim, bias=False)
         self.wo = nn.Linear(cfg.n_heads * cfg.head_dim, cfg.d_model, bias=False)
 
-    def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    def forward(self, x, cos, sin, attn_mask=None, cache=None, layer=0):
         B, T, _ = x.shape
         q = self.wq(x).view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
         k = self.wk(x).view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
         v = self.wv(x).view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
         q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
+        if cache is not None:
+            k, v = cache.update(layer, k, v)  # all keys/values so far, incl. this chunk
         # GQA: each group of n_heads / n_kv_heads query heads shares one K/V head.
         rep = self.n_heads // self.n_kv_heads
         k = k.repeat_interleave(rep, dim=1)
         v = v.repeat_interleave(rep, dim=1)
-        y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        if attn_mask is None:
+            assert cache is None, "cached attention needs an explicit mask"
+            y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        else:
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
         return self.wo(y.transpose(1, 2).reshape(B, T, -1))
 
 
@@ -102,8 +109,8 @@ class Block(nn.Module):
         self.mlp_norm = RMSNorm(cfg.d_model, cfg.norm_eps)
         self.mlp = SwiGLU(cfg)
 
-    def forward(self, x, cos, sin):
-        x = x + self.attn(self.attn_norm(x), cos, sin)
+    def forward(self, x, cos, sin, attn_mask=None, cache=None, layer=0):
+        x = x + self.attn(self.attn_norm(x), cos, sin, attn_mask, cache, layer)
         x = x + self.mlp(self.mlp_norm(x))
         return x
 
@@ -135,11 +142,29 @@ class Transformer(nn.Module):
             s = std / math.sqrt(2 * self.cfg.n_layers) if name.endswith(("wo.weight", "w_down.weight")) else std
             nn.init.normal_(p, mean=0.0, std=s)
 
-    def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
+    def hidden(self, idx, pos=None, attn_mask=None, cache=None):
+        """Final normed hidden states (B, T, d_model).
+
+        Default (pretraining) path: positions 0..T-1, causal attention via the fused kernel.
+        For padded batches / incremental decoding pass
+          pos:       (B, T) absolute position of each token (for RoPE),
+          attn_mask: (B, 1, T, S) bool, True where query t may attend key s (S = cached + T),
+          cache:     KVCache, appended to in place.
+        """
+        T = idx.shape[1]
+        if pos is None:
+            cos, sin = self.rope_cos[:T], self.rope_sin[:T]
+        else:
+            cos, sin = self.rope_cos[pos].unsqueeze(1), self.rope_sin[pos].unsqueeze(1)
         x = self.embed(idx)
-        for block in self.blocks:
-            x = block(x, self.rope_cos, self.rope_sin)
-        logits = self.lm_head(self.norm(x))
+        for i, block in enumerate(self.blocks):
+            x = block(x, cos, sin, attn_mask, cache, i)
+        if cache is not None:
+            cache.length += T
+        return self.norm(x)
+
+    def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None, **kw):
+        logits = self.lm_head(self.hidden(idx, **kw))
         if targets is None:
             return logits
         # Cross-entropy in fp32: bf16 logits lose too much precision over a 32k vocab.
@@ -156,3 +181,19 @@ class Transformer(nn.Module):
         """Training FLOPs per token (fwd + bwd ~= 3x fwd), PaLM appendix B formula."""
         c = self.cfg
         return 6 * self.num_params(non_embedding=True) + 6 * c.vocab_size * c.d_model + 12 * c.n_layers * c.d_model * seq_len
+
+
+class KVCache:
+    """Preallocated per-layer keys/values for incremental decoding."""
+
+    def __init__(self, cfg: ModelConfig, batch: int, max_len: int, device, dtype):
+        shape = (cfg.n_layers, batch, cfg.n_kv_heads, max_len, cfg.head_dim)
+        self.k = torch.zeros(shape, device=device, dtype=dtype)
+        self.v = torch.zeros(shape, device=device, dtype=dtype)
+        self.length = 0  # advanced by Transformer.hidden after all layers have written
+
+    def update(self, layer: int, k: torch.Tensor, v: torch.Tensor):
+        end = self.length + k.shape[2]
+        self.k[layer, :, :, self.length : end] = k
+        self.v[layer, :, :, self.length : end] = v
+        return self.k[layer, :, :, :end], self.v[layer, :, :, :end]

@@ -39,7 +39,8 @@ def test_attention_matches_naive():
     q = attn.wq(x).view(B, T, attn.n_heads, -1).transpose(1, 2)
     k = attn.wk(x).view(B, T, attn.n_kv_heads, -1).transpose(1, 2)
     v = attn.wv(x).view(B, T, attn.n_kv_heads, -1).transpose(1, 2)
-    q, k = apply_rope(q, m.rope_cos, m.rope_sin), apply_rope(k, m.rope_cos, m.rope_sin)
+    cos, sin = m.rope_cos[:T], m.rope_sin[:T]
+    q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
     rep = attn.n_heads // attn.n_kv_heads
     out = []
     for h in range(attn.n_heads):
@@ -48,7 +49,7 @@ def test_attention_matches_naive():
         s = s.masked_fill(torch.triu(torch.ones(T, T, dtype=torch.bool), 1), float("-inf"))
         out.append(F.softmax(s, -1) @ vh)
     ref = attn.wo(torch.cat(out, -1))
-    torch.testing.assert_close(attn(x, m.rope_cos, m.rope_sin), ref, rtol=1e-5, atol=1e-5)
+    torch.testing.assert_close(attn(x, cos, sin), ref, rtol=1e-5, atol=1e-5)
 
 
 def test_causal():

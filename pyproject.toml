@@ -11,6 +11,9 @@ dependencies = [
     "huggingface_hub",
     "tqdm",
     "pytest",
+    "datasets",
+    "anthropic",
+    "pydantic",
 ]
 
 [tool.uv.sources]
@@ -23,3 +26,7 @@ explicit = true
 
 [tool.setuptools]
 packages = ["llm"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"

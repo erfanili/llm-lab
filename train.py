@@ -6,20 +6,20 @@ e.g. `train.max_steps=50 train.name=smoke`. Overrides are parsed as TOML values.
 """
 
 import json
-import math
 import os
 import sys
 import time
-import tomllib
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import torch
 
 from llm import dist
+from llm.config import load_config
 from llm.data import TokenFile, TrainLoader, load_meta, token_byte_lengths
 from llm.evaluate import eval_loss
 from llm.model import ModelConfig, Transformer
+from llm.optim import cosine_lr, make_adamw
 
 
 @dataclass
@@ -60,42 +60,8 @@ class Config:
     train: TrainConfig = field(default_factory=TrainConfig)
 
 
-def load_config(path: str, overrides: list[str]) -> Config:
-    with open(path, "rb") as f:
-        raw = tomllib.load(f)
-    for ov in overrides:
-        key, val = ov.split("=", 1)
-        section, name = key.split(".")
-        try:
-            parsed = tomllib.loads(f"v = {val}")["v"]
-        except tomllib.TOMLDecodeError:
-            parsed = val  # bare string, e.g. train.name=smoke
-        raw.setdefault(section, {})[name] = parsed
-    cfg = Config()
-    for section, values in raw.items():
-        obj = getattr(cfg, section)
-        known = {f.name: f.type for f in fields(obj)}
-        for k, v in values.items():
-            if k not in known:
-                raise KeyError(f"unknown config key {section}.{k}")
-            setattr(obj, k, type(getattr(obj, k))(v))
-    return cfg
-
-
 def lr_at(step: int, total_steps: int, t: TrainConfig) -> float:
-    """Linear warmup, then cosine decay to min_lr_ratio * lr."""
-    if step < t.warmup_steps:
-        return t.lr * (step + 1) / t.warmup_steps
-    progress = min((step - t.warmup_steps) / max(total_steps - t.warmup_steps, 1), 1.0)
-    return t.lr * (t.min_lr_ratio + (1 - t.min_lr_ratio) * 0.5 * (1 + math.cos(math.pi * progress)))
-
-
-def make_optimizer(model: Transformer, t: TrainConfig) -> torch.optim.AdamW:
-    # Weight decay on matrices (incl. the tied embedding); none on RMSNorm gains.
-    decay = [p for p in model.parameters() if p.dim() >= 2]
-    no_decay = [p for p in model.parameters() if p.dim() < 2]
-    groups = [dict(params=decay, weight_decay=t.weight_decay), dict(params=no_decay, weight_decay=0.0)]
-    return torch.optim.AdamW(groups, lr=t.lr, betas=(t.beta1, t.beta2), eps=t.eps, fused=True)
+    return cosine_lr(step, total_steps, t.lr, t.warmup_steps, t.min_lr_ratio)
 
 
 def save_checkpoint(path: Path, model, opt, step: int, cfg: Config):
@@ -105,7 +71,7 @@ def save_checkpoint(path: Path, model, opt, step: int, cfg: Config):
 
 
 def main():
-    cfg = load_config(sys.argv[1], sys.argv[2:])
+    cfg = load_config(Config, sys.argv[1], sys.argv[2:])
     t, mcfg = cfg.train, cfg.model
     rank, world, device = dist.setup()
     master = rank == 0
@@ -120,7 +86,7 @@ def main():
     model = Transformer(mcfg).to(device)
     params = list(model.parameters())
     grads = dist.GradBuffer(params)
-    opt = make_optimizer(model, t)
+    opt = make_adamw(model, t.lr, t.weight_decay, (t.beta1, t.beta2), t.eps)
 
     loader = TrainLoader(t.train_bin, t.seq_len, t.micro_batch, t.grad_accum, rank, world, t.seed, device)
     total_steps = t.total_tokens // loader.tokens_per_step
