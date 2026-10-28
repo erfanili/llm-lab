@@ -29,7 +29,7 @@ DEFAULT_TASKS = list(PRIMARY)
 
 @torch.no_grad()
 def score(model, requests: list[tuple[list[int], list[int]]], device, max_len: int,
-          batch_tokens: int = 65536) -> list[tuple[float, bool]]:
+          batch_tokens: int = 65536, amp: bool = False) -> list[tuple[float, bool]]:
     """(context_ids, continuation_ids) -> (sum log P(continuation), continuation is the greedy decode).
 
     Sequences are length-sorted and right-padded (causal attention never looks at the padding),
@@ -50,7 +50,7 @@ def score(model, requests: list[tuple[list[int], list[int]]], device, max_len: i
         for r, j in enumerate(batch):
             x[r, : len(seqs[j][0])] = torch.tensor(seqs[j][0])
         x = x.to(device)
-        with torch.autocast("cuda", dtype=torch.bfloat16, enabled=x.is_cuda):
+        with torch.autocast("cuda", dtype=torch.bfloat16, enabled=amp and x.is_cuda):
             h = model.hidden(x[:, :-1])
         rows, cols = [], []
         for r, j in enumerate(batch):
@@ -58,11 +58,14 @@ def score(model, requests: list[tuple[list[int], list[int]]], device, max_len: i
             rows += [r] * n_cont
             cols += list(range(n_full - 1 - n_cont, n_full - 1))  # positions predicting the continuation
         rows_t, cols_t = torch.tensor(rows, device=device), torch.tensor(cols, device=device)
-        logits = model.lm_head(h[rows_t, cols_t]).float()
-        logp = F.log_softmax(logits, -1)
         tgt = x[rows_t, cols_t + 1]
-        tok_lp = logp.gather(1, tgt[:, None])[:, 0]
-        greedy = logits.argmax(-1) == tgt
+        tok_lp, greedy = [], []
+        for k in range(0, len(rows), 8192):  # chunk the vocab projection: (positions x vocab) fp32 gets big
+            logits = model.lm_head(h[rows_t[k : k + 8192], cols_t[k : k + 8192]]).float()
+            t = tgt[k : k + 8192]
+            tok_lp.append(F.log_softmax(logits, -1).gather(1, t[:, None])[:, 0])
+            greedy.append(logits.argmax(-1) == t)
+        tok_lp, greedy = torch.cat(tok_lp), torch.cat(greedy)
         start = 0
         for j in batch:
             n = seqs[j][1]
@@ -93,14 +96,15 @@ def run_task(lm, items: list[dict], limit: int | None = None):
     items = items[:limit] if limit else items
     if items[0]["task"] == "lambada":
         reqs = [encode_pair(lm, it["context"], it["continuation"]) for it in items]
-        res = score(lm, reqs, lm.device, lm.max_len)
+        res = score(lm, reqs, lm.device, lm.max_len, amp=lm.amp)
         per_item = [dict(id=it["id"], correct=g, ll=ll) for it, (ll, g) in zip(items, res)]
+        # Perplexity as in lm-eval-harness: exp of the negated mean per-example (whole target word) log-likelihood.
         metrics = dict(acc=mean_ci([r["correct"] for r in per_item]),
-                       ppl=dict(mean=math.exp(-sum(r["ll"] for r in per_item) / sum(len(c) for _, c in reqs))))
+                       ppl=dict(mean=math.exp(-float(np.mean([r["ll"] for r in per_item])))))
         return metrics, per_item
 
     flat = [encode_pair(lm, c["context"], c["continuation"]) for it in items for c in it["choices"]]
-    res = iter(score(lm, flat, lm.device, lm.max_len))
+    res = iter(score(lm, flat, lm.device, lm.max_len, amp=lm.amp))
     per_item = []
     for it in items:
         ll = np.array([next(res)[0] for _ in it["choices"]])
@@ -146,7 +150,7 @@ def doc_bpb(lm, docs: list[str]) -> dict:
         for s in range(0, len(t), stride):
             pos = len(lm.empty_ctx) + s  # index in `full` of the first scored token
             reqs.append((full[max(0, pos - (lm.max_len - stride)) : pos], t[s : s + stride]))
-    nll = -sum(ll for ll, _ in score(lm, reqs, lm.device, lm.max_len))
+    nll = -sum(ll for ll, _ in score(lm, reqs, lm.device, lm.max_len, amp=lm.amp))
     n_tok = sum(len(c) for _, c in reqs)
     return dict(bpb=nll / math.log(2) / n_bytes, bytes=n_bytes, tokens=n_tok, bytes_per_token=n_bytes / n_tok,
                 n_docs=len(docs))

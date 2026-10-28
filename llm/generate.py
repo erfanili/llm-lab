@@ -41,8 +41,9 @@ def sample_next(logits: torch.Tensor, temperature: float, top_p: float, top_k: i
 @torch.no_grad()
 def generate(model: Transformer, prompts: list[list[int]], max_new_tokens: int, *, temperature: float = 1.0,
              top_p: float = 1.0, top_k: int = 0, stop_ids: tuple[int, ...] = (0,), seed: int | None = None,
-             device=None) -> list[dict]:
-    """Returns per prompt {"tokens": generated ids (stop token excluded), "finish": "stop" | "length"}."""
+             device=None, amp: bool = True) -> list[dict]:
+    """Returns per prompt {"tokens": generated ids (stop token excluded), "finish": "stop" | "length"}.
+    amp=True runs bf16 autocast on CUDA (fast, for training loops); evals pass amp=False for fp32."""
     device = device or next(model.parameters()).device
     max_prompt = model.cfg.max_seq_len - max_new_tokens
     assert max_prompt > 0
@@ -59,7 +60,7 @@ def generate(model: Transformer, prompts: list[list[int]], max_new_tokens: int, 
     if seed is not None:
         gen = torch.Generator(device=device)
         gen.manual_seed(seed)
-    use_amp = idx.is_cuda
+    use_amp = amp and idx.is_cuda
     cache = KVCache(model.cfg, B, P + max_new_tokens, device, torch.bfloat16 if use_amp else torch.float32)
     stop = torch.tensor(stop_ids, device=device)
     out = torch.zeros(B, max_new_tokens, dtype=torch.long, device=device)

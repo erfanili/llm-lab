@@ -29,7 +29,7 @@ REPO = Path(__file__).resolve().parent
 @dataclass
 class SFTConfig:
     name: str = "sft_50m"
-    init_ckpt: str = f"{D}/runs/50m/ckpt.pt"
+    init_ckpt: str = f"{D}/runs/50m_lr4e-3/ckpt.pt"
     out_dir: str = f"{D}/runs"
     train_data: str = f"{D}/posttrain/sft_train.pt"
     val_data: str = f"{D}/posttrain/sft_val.pt"

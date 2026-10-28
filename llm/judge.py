@@ -11,6 +11,7 @@ an analysis never pays twice. Needs credentials: ANTHROPIC_API_KEY or an `ant au
 import hashlib
 import json
 import os
+import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -54,9 +55,14 @@ def _load_key_file():
 
 
 class Judge:
-    def __init__(self, cache_path: str | Path, model: str = MODEL, effort: str = "medium", workers: int = 8):
-        _load_key_file()
-        self.client = anthropic.Anthropic()
+    def __init__(self, cache_path: str | Path, model: str = MODEL, effort: str = "medium", workers: int = 8,
+                 backend: str = "api"):
+        """backend="api": the Claude API (API key). backend="cli": headless Claude Code (`claude -p`), billed to
+        the logged-in Claude Code account. Same model, prompt and schema, so both share one cache."""
+        self.backend = backend
+        if backend == "api":
+            _load_key_file()
+            self.client = anthropic.Anthropic(max_retries=8)  # 429s on concurrency limits back off and retry
         self.model, self.effort, self.workers = model, effort, workers
         self.cache_path = Path(cache_path)
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,6 +77,31 @@ class Judge:
         key = hashlib.sha256(json.dumps([self.model, self.effort, content, schema], sort_keys=True).encode()).hexdigest()
         if key in self.cache:
             return self.cache[key]
+        result = self._call_cli(content, schema) if self.backend == "cli" else self._call_api(content, schema)
+        with self.lock:
+            self.cache[key] = result
+            with open(self.cache_path, "a") as f:
+                f.write(json.dumps(dict(key=key, result=result)) + "\n")
+        return result
+
+    def _call_cli(self, content: str, schema: dict) -> dict | None:
+        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}  # use the Claude Code login
+        cmd = ["claude", "-p", "--model", self.model, "--effort", self.effort, "--output-format", "json",
+               "--tools", "", "--no-session-persistence", "--system-prompt", "You are a careful, impartial evaluator.",
+               "--json-schema", json.dumps(schema)]
+        for _ in range(3):
+            p = subprocess.run(cmd, input=content, capture_output=True, text=True, env=env, timeout=600)
+            try:
+                out = json.loads(p.stdout)
+            except json.JSONDecodeError:
+                continue
+            if out.get("structured_output") is not None:
+                return dict(out["structured_output"], judge_model=f"{self.model} (claude-code)")
+            if not out.get("is_error"):
+                return None  # answered without a verdict (e.g. a safety decline): recorded as missing
+        raise RuntimeError(f"claude -p failed: {p.stderr[-500:] or p.stdout[-500:]}")
+
+    def _call_api(self, content: str, schema: dict) -> dict | None:
         resp = self.client.beta.messages.create(
             model=self.model,
             max_tokens=16000,
@@ -84,10 +115,6 @@ class Judge:
         else:
             result = json.loads(next(b.text for b in resp.content if b.type == "text"))
             result["judge_model"] = resp.model
-        with self.lock:
-            self.cache[key] = result
-            with open(self.cache_path, "a") as f:
-                f.write(json.dumps(dict(key=key, result=result)) + "\n")
         return result
 
     def _pairwise_one(self, prompt: str, a: str, b: str, reference: str | None) -> dict | None:

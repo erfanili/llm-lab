@@ -19,6 +19,9 @@ Protocol: lm-evaluation-harness, 0-shot, accuracy (fractions in the paper, ± st
 | Pythia-1B | 1B | 300B | 56.2 | 70.7 | 53.7 | 56.9 | 24.4 | 84.0 |
 | BLOOM-1.1B | 1.1B | — | 42.6 | 67.2 | 54.7 | 51.5 | 23.6 | 83.3 |
 | OPT-1.3B | 1.3B | — | 57.9 | 71.7 | 59.7 | 57.0 | 23.1 | 84.5 |
+| **ours: 50M lr4e-3 (1B tok, fp32)** | | | 19.7 ±1.1 | 60.0 ±2.2 | 52.9 ±2.7 | 46.3 ±2.0 | 19.4 ±2.3 | 71.4 ±2.8 |
+
+Our metric per column: lambada=acc, piqa=acc, winogrande=acc, arc_easy=acc, arc_challenge=acc, sciq=acc. n/c = not comparable under this source's protocol.
 
 ## MobileLLM and sub-600M baselines
 
@@ -43,6 +46,9 @@ Protocol: 0-shot; baselines re-evaluated by the authors from HF checkpoints for 
 | RWKV-430M | 430M | — | 48.9 | 32.0 | 68.1 | 40.6 | 37.8 | 51.6 |
 | BLOOM-560M | 559M | — | 43.7 | 27.5 | 65.1 | 36.5 | 32.6 | 52.2 |
 | Cerebras-GPT-590M | 590M | — | 42.6 | 24.9 | 62.8 | 32.0 | 33.2 | 49.7 |
+| **ours: 50M lr4e-3 (1B tok, fp32)** | | | 42.5 ±2.0 | 23.5 ±2.4 | 59.2 ±2.2 | 27.8 ±0.9 | 27.4 ±3.9 | 52.9 ±2.7 |
+
+Our metric per column: arc_easy=acc_norm, arc_challenge=acc_norm, piqa=acc_norm, hellaswag=acc_norm, openbookqa=acc_norm, winogrande=acc. n/c = not comparable under this source's protocol.
 
 ## ~1B models (TinyLlama paper)
 
@@ -57,6 +63,9 @@ Protocol: lm-evaluation-harness, 0-shot; acc vs acc_norm not stated. TinyLlama v
 | OPT-1.3B | 1.3B | — | 53.6 | 33.4 | 59.6 | 29.4 | 50.8 | 72.4 |
 | TinyLlama v1.0 | 1.1B | 3T | 59.2 | 36.0 | 59.1 | 30.1 | 55.2 | 73.3 |
 | TinyLlama v1.1 | 1.1B | 2T | 61.5 | 36.8 | 59.4 | 32.7 | 55.5 | 73.6 |
+| **ours: 50M lr4e-3 (1B tok, fp32)** | | | 27.8 ±0.9 | 27.4 ±3.9 | 52.9 ±2.7 | 23.5 ±2.4 | 42.5 ±2.0 | 59.2 ±2.2 |
+
+Our metric per column: hellaswag=acc_norm, openbookqa=acc_norm, winogrande=acc, arc_challenge=acc_norm, arc_easy=acc_norm, piqa=acc_norm. n/c = not comparable under this source's protocol.
 
 ## ~1B models (OLMo paper)
 
@@ -70,6 +79,9 @@ Protocol: 0-shot rank classification (Catwalk). Per-task normalisation: uncondit
 | TinyLlama-1.1B | 1.1B | 3T | 34.8 | 53.2 | 58.7 | 43.6 | 71.1 | 90.5 | 58.9 |
 | OLMo-1B | 1B | 2T | 34.5 | 58.1 | 62.5 | 46.4 | 73.7 | 88.1 | 58.9 |
 | StableLM-1.6B | 1.6B | — | 43.8 | 63.7 | 68.2 | 45.8 | 74.0 | 94.7 | 64.9 |
+| **ours: 50M lr4e-3 (1B tok, fp32)** | | | n/c | n/c | 27.8 ±0.9 | n/c | 59.2 ±2.2 | 71.4 ±2.8 | 52.9 ±2.7 |
+
+Our metric per column: hellaswag=acc_norm, piqa=acc_norm, winogrande=acc, sciq=acc. n/c = not comparable under this source's protocol.
 
 ## SmolLM / SmolLM2 base models (model cards)
 
@@ -84,6 +96,9 @@ Protocol: lighteval, 0-shot; ARC is the average of ARC-Easy and ARC-Challenge; p
 | SmolLM-360M | 360M | — | 51.8 | 50.1 | 71.6 | 52.8 | 37.2 |
 | SmolLM2-360M | 360M | 4T | 54.5 | 53.0 | 71.7 | 52.5 | 37.4 |
 | Qwen2.5-0.5B | 500M | — | 51.2 | 45.4 | 69.9 | 54.1 | 37.4 |
+| **ours: 50M lr4e-3 (1B tok, fp32)** | | | 27.8 ±0.9 | 33.0 | 59.2 ±2.2 | 52.9 ±2.7 | 27.4 ±3.9 |
+
+Our metric per column: hellaswag=acc_norm, arc_avg=mean(arc_easy, arc_challenge) acc_norm, piqa=acc_norm, winogrande=acc, openbookqa=acc_norm. n/c = not comparable under this source's protocol.
 
 ## GPT-2-small-class HellaSwag (incl. a FineWeb-trained reproduction)
 
@@ -96,6 +111,9 @@ Protocol: llm.c HellaSwag eval (completion-style, lowest per-token loss ~ acc_no
 | GPT-2 (OpenAI) | 124M | — | 29.4 |
 | GPT-2 repro, llm.c (FineWeb) | 124M | 10B | 29.9 |
 | GPT-3 Small | 125M | 300B | 33.7 |
+| **ours: 50M lr4e-3 (1B tok, fp32)** | | | 27.8 ±0.9 |
+
+Our metric per column: hellaswag=acc_norm. n/c = not comparable under this source's protocol.
 
 ## BLiMP overall accuracy (original paper baselines)
 
@@ -110,3 +128,6 @@ Protocol: Full-sentence log-probability forced choice over all 67k minimal pairs
 | Transformer-XL (WikiText-103) | — | 103M | 69.6 |
 | GPT-2-large | 774M | — | 83.0 |
 | Human (individual) | — | — | 88.6 |
+| **ours: 50M lr4e-3 (1B tok, fp32)** | | | 76.5 ±0.3 |
+
+Our metric per column: blimp=acc. n/c = not comparable under this source's protocol.

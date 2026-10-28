@@ -11,6 +11,7 @@ class CharLM:
         self.model = Transformer(ModelConfig(vocab_size=128, d_model=32, n_layers=1, n_heads=2, n_kv_heads=1,
                                              d_ff=64, max_seq_len=max_len)).eval()
         self.prefix, self.empty_ctx, self.max_len, self.device = [0], [0], max_len, torch.device("cpu")
+        self.amp = False
 
     def encode(self, s):
         return [ord(c) for c in s]

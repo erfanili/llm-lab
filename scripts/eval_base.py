@@ -38,6 +38,8 @@ def main():
     ap.add_argument("--val-tokens", type=int, default=10 * 2**20)
     ap.add_argument("--val-docs", type=int, default=1000)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--dtype", default="fp32", choices=["fp32", "fp16", "bf16"],
+                    help="HF weight dtype. fp32 = precise (default); fp16 reproduces e.g. the Pythia paper's numbers")
     args = ap.parse_args()
 
     device = torch.device(args.device)
@@ -46,12 +48,13 @@ def main():
         step = lm.ckpt.get("step", "na")
         out = Path(args.out or Path(args.ckpt).parent / "evals" / f"{Path(args.ckpt).stem}_step{step}")
     else:
-        lm = HFLM(args.hf, device, args.revision)
+        dtype = dict(fp32=torch.float32, fp16=torch.float16, bf16=torch.bfloat16)[args.dtype]
+        lm = HFLM(args.hf, device, args.revision, dtype)
         step = args.revision or "main"
-        out = Path(args.out or Path(D) / "evals_external" / f"{args.hf.replace('/', '__')}@{step}")
+        out = Path(args.out or Path(D) / "evals_external" / f"{args.hf.replace('/', '__')}@{step}_{args.dtype}")
     out.mkdir(parents=True, exist_ok=True)
 
-    summary = dict(model=lm.name, step=step, max_len=lm.max_len, tasks={}, val={})
+    summary = dict(model=lm.name, step=step, max_len=lm.max_len, dtype=args.dtype if args.hf else "fp32", tasks={}, val={})
     t0 = time.time()
     with torch.no_grad():
         summary["val"]["doc"] = doc_bpb(lm, load_val_docs(args.val_bin, args.tokenizer, args.val_docs))

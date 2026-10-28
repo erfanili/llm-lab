@@ -32,11 +32,12 @@ def main():
     ap.add_argument("--prompts", default=str(REPO / "data/prompts/inspect_v1.jsonl"))
     ap.add_argument("--model", default=MODEL)
     ap.add_argument("--effort", default="medium")
+    ap.add_argument("--backend", default="api", choices=["api", "cli"], help="cli = headless Claude Code (claude -p)")
     ap.add_argument("--cache", default="/data/erfan/llm-lab/judge_cache.jsonl")
     args = ap.parse_args()
 
     refs = {p["id"]: p.get("expect") for p in map(json.loads, open(args.prompts))}
-    judge = Judge(args.cache, args.model, args.effort)
+    judge = Judge(args.cache, args.model, args.effort, backend=args.backend)
     runs = [load(f, args.mode, args.sample) for f in args.files]
     ids = [i for i in runs[0] if all(i in r for r in runs)]
 

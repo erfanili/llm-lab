@@ -1,8 +1,8 @@
 [sft]
 name = "sft_50m"
-init_ckpt = "/data/erfan/llm-lab/runs/50m/ckpt.pt"   # swap for the LR-sweep winner
+init_ckpt = "/data/erfan/llm-lab/runs/50m_lr4e-3/ckpt.pt"   # LR-sweep winner (lr=4e-3)
 epochs = 2.0
-micro_batch = 32
-grad_accum = 2
+micro_batch = 16
+grad_accum = 4
 lr = 3e-4
 eval_interval = 250

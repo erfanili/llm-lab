@@ -21,6 +21,7 @@ class OurLM:
         self.max_len = self.model.cfg.max_seq_len
         self.device = device
         self.name = ckpt
+        self.amp = False  # bf16 autocast; fp32 by default (precision-sensitive tasks)
 
     def encode(self, s: str) -> list[int]:
         return self.tok.encode(s).ids if s else []
@@ -48,6 +49,7 @@ class HFLM:
         self.device = device
         self.name = name if revision is None else f"{name}@{revision}"
         self._head = self.model.get_output_embeddings()
+        self.amp = False
         self._check_head()
 
     def encode(self, s: str) -> list[int]:
